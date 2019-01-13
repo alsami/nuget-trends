@@ -5,6 +5,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NuGetTrends.Api.Dtos;
+using NuGetTrends.Api.Models;
+using NuGetTrends.Api.Services;
 using NuGetTrends.Data;
 
 namespace NuGetTrends.Api
@@ -14,8 +17,14 @@ namespace NuGetTrends.Api
     public class PackageController : ControllerBase
     {
         private readonly NuGetTrendsContext _context;
+        private readonly IPackageHistoryService _packageHistoryService;
 
-        public PackageController(NuGetTrendsContext context) => _context = context;
+        public PackageController(NuGetTrendsContext context, IPackageHistoryService packageHistoryService)
+        {
+            _context = context;
+            _packageHistoryService = packageHistoryService;
+        }
+
 
         [HttpGet("search")]
         public async Task<ActionResult<IEnumerable<object>>> Search([FromQuery] string q)
@@ -33,31 +42,9 @@ namespace NuGetTrends.Api
                 .ToListAsync();
 
         [HttpGet("history/{id}")]
-        public Task<object> GetDownloadHistory([FromRoute] string id, [FromQuery] int months = 3)
+        public Task<PackageDownloadDto> GetDownloadHistory([FromRoute] string id, [FromQuery] int months = 3, [FromQuery] HistoryGroupingType groupBy = HistoryGroupingType.Week)
         {
-            var query = from p in _context.PackageDownloads.AsNoTracking()
-                where p.PackageId == id
-                select new
-                {
-                    Id = p.PackageId,
-                    p.IconUrl,
-                    Downloads = from d in _context.DailyDownloads.AsNoTracking()
-                        where d.PackageId == p.PackageId
-                              && d.Date > DateTime.UtcNow.AddMonths(-months).Date
-                        select new {d.Date, d.DownloadCount}
-                        into dc
-                        let week = dc.Date.AddDays(-(int)dc.Date.DayOfWeek).Date
-                        group dc by week
-                        into dpw
-                        orderby dpw.Key
-                        select new
-                        {
-                            dpw.Key.Date,
-                            Count = dpw.Average(c => c.DownloadCount)
-                        } as object
-                } as object;
-
-            return query.FirstOrDefaultAsync();
+            return _packageHistoryService.LoadHistoryAsync(new HistoryLoadModel(id, months, groupBy));
         }
     }
 }

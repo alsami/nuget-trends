@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
+using NuGetTrends.Api.Services;
 using NuGetTrends.Data;
 using Swashbuckle.AspNetCore.Swagger;
 using Swashbuckle.AspNetCore.SwaggerUI;
@@ -50,6 +51,8 @@ namespace NuGetTrends.Api
                         });
                 });
             }
+
+            services.AddScoped<IPackageHistoryService, PackageHistoryService>();
 
             services
                 .AddEntityFrameworkNpgsql()
